@@ -1,8 +1,11 @@
 package com.anikesh.saas_backend.service;
 
+import com.anikesh.saas_backend.Exception.CustomException;
 import com.anikesh.saas_backend.entity.User;
 import com.anikesh.saas_backend.repository.UserRepository;
 import com.anikesh.saas_backend.security.JwtUtil;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,7 +28,10 @@ public class AuthService {
     public String register(String name , String email, String password){
          
         if(userRepository.findByEmail(email).isPresent()){
-            throw new RuntimeException("Email already registered");
+           throw new CustomException(
+            "Email already registered",
+            HttpStatus.CONFLICT
+    );
         }
 
         User user=new User();
