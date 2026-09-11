@@ -55,7 +55,7 @@ public class TenantContextFilter extends OncePerRequestFilter{
                 return;
         }
 
-        boolean isMember = membershipRepository.existsByTenantIdAndUserId(tenantId, userDetails.getUserId());
+        boolean isMember = membershipRepository.existsByTenant_TenantIdAndUser_UserId(tenantId, userDetails.getUserId());
             if (!isMember) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Not a member of this tenant");
                 return;
