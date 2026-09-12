@@ -3,7 +3,7 @@ package com.anikesh.saas_backend.service;
 import com.anikesh.saas_backend.Exception.CustomException;
 import com.anikesh.saas_backend.dto.*;
 import com.anikesh.saas_backend.entity.Task;
-import com.anikesh.saas_backend.repository.TaskRepository;
+import com.anikesh.saas_backend.repository.*;
 import com.anikesh.saas_backend.security.CurrentUserProvider;
 import com.anikesh.saas_backend.tenant.RequiresRole;
 import com.anikesh.saas_backend.tenant.TenantContext;
@@ -18,15 +18,18 @@ import java.util.List;
 public class TaskService {
 
     private final TaskRepository taskRepository;
-
-    public TaskService(TaskRepository taskRepository) {
+    private final TenantMembershipRepository membershipRepository;
+    public TaskService(TaskRepository taskRepository, TenantMembershipRepository membershipRepository) {
         this.taskRepository = taskRepository;
+        this.membershipRepository = membershipRepository;
     }
 
     @Transactional
     @TenantScoped
     @RequiresRole({"owner", "admin"})
     public TaskResponseDTO createTask(TaskCreateDTO dto) {
+        validateTenantMember(dto.getAssignedTo());
+
         Task task = new Task();
         task.setTenantId(TenantContext.getTenantId());
         task.setProjectId(dto.getProjectId());
@@ -48,6 +51,7 @@ public class TaskService {
     @TenantScoped
     @RequiresRole({"owner", "admin", "member"}) 
     public TaskResponseDTO updateTask(Long taskId, TaskUpdateDTO dto) {
+
         Task task = findOrThrow(taskId);
 
         Long userId = CurrentUserProvider.getCurrentUserId();
@@ -64,7 +68,8 @@ public class TaskService {
         task.setStatus(dto.getStatus());
         task.setDueDate(dto.getDueDate());
         if (isPrivileged) {
-            task.setAssignedTo(dto.getAssignedTo()); // members can't reassign, even their own task
+            validateTenantMember(dto.getAssignedTo());
+            task.setAssignedTo(dto.getAssignedTo()); 
         }
         return toDto(task);
     }
@@ -85,4 +90,18 @@ public class TaskService {
         return new TaskResponseDTO(t.getTaskId(), t.getProjectId(), t.getTenantId(), t.getTitle(),
                 t.getDescription(), t.getStatus(), t.getAssignedTo(), t.getDueDate(), t.getCreatedAt(), t.getUpdatedAt());
     }
+
+    private void validateTenantMember(Long userId) {
+    membershipRepository
+            .findByTenant_TenantIdAndUser_UserId(
+                    TenantContext.getTenantId(),
+                    userId
+            )
+            .orElseThrow(() ->
+                    new CustomException(
+                            "User is not a member of this tenant",
+                            HttpStatus.BAD_REQUEST
+                    )
+            );
+}
 }
