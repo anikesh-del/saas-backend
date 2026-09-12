@@ -5,6 +5,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
+
+import com.anikesh.saas_backend.entity.TenantMembership;
 import com.anikesh.saas_backend.repository.TenantMembershipRepository;
 import com.anikesh.saas_backend.security.CustomUserDetails;
 
@@ -55,13 +57,25 @@ public class TenantContextFilter extends OncePerRequestFilter{
                 return;
         }
 
-        boolean isMember = membershipRepository.existsByTenant_TenantIdAndUser_UserId(tenantId, userDetails.getUserId());
-            if (!isMember) {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Not a member of this tenant");
-                return;
-            }
+        TenantMembership membership =
+        membershipRepository
+            .findByTenant_TenantIdAndUser_UserId(
+                tenantId,
+                userDetails.getUserId()
+            )
+            .orElse(null);
+
+if (membership == null) {
+    response.sendError(
+        HttpServletResponse.SC_FORBIDDEN,
+        "Not a member of this tenant"
+    );
+    return;
+}
         
             TenantContext.setTenantId(tenantId);
+            TenantContext.setRole(membership.getRole().getName());
+            
             filterChain.doFilter(request,response);
 
      }finally{

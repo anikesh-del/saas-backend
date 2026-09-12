@@ -7,7 +7,7 @@ import org.springframework.http.ResponseEntity; import org.springframework.secur
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/tenants")
+@RequestMapping("api/v1/tenants")
 public class TenantController {
     
     private final TenantService tenantService;

@@ -16,7 +16,7 @@ public class AuthController {
         this.authService=authService;
     }
     
-    @PostMapping("/register")
+    @PostMapping("/api/v1/register")
     public ResponseEntity<AuthResponseDTO> register(
         @Valid @RequestBody RegisterRequestDTO req
     ){
@@ -28,7 +28,7 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponseDTO(token));
     }
 
-    @PostMapping("/login")
+    @PostMapping("/api/v1/login")
     public ResponseEntity<AuthResponseDTO> login(
         @Valid @RequestBody LoginRequestDTO req
     ){

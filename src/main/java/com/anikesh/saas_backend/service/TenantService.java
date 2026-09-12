@@ -27,7 +27,7 @@ public class TenantService {
 
         Role ownerRole = roleRepository.findByName("owner") .orElseThrow(() -> new CustomException( "Owner role not found", HttpStatus.INTERNAL_SERVER_ERROR ));
 
-        Tenant tenant = new Tenant(); 
+        Tenant tenant = new Tenant();
         tenant.setName(name);
         tenant.setStatus("active"); 
         tenant = tenantRepository.save(tenant);
