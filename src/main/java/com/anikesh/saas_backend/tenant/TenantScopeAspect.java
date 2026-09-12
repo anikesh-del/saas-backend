@@ -1,22 +1,22 @@
 package com.anikesh.saas_backend.tenant;
 
+import com.anikesh.saas_backend.Exception.CustomException;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.flywaydb.core.internal.jdbc.JdbcTemplate;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import com.anikesh.saas_backend.Exception.CustomException;
 
 @Aspect 
 @Component 
 @Order(200)
-public class TenanatScopeAspect {
+public class TenantScopeAspect {
     private final JdbcTemplate jdbcTemplate;
 
-    TenanatScopeAspect(JdbcTemplate jdbcTemplate) {
+    TenantScopeAspect(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
