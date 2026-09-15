@@ -4,7 +4,7 @@ import com.anikesh.saas_backend.Exception.CustomException;
 import com.anikesh.saas_backend.dto.*;
 import com.anikesh.saas_backend.entity.*;
 import com.anikesh.saas_backend.repository.*;
-import com.anikesh.saas_backend.security.CurrentUserProvider;
+
 import com.anikesh.saas_backend.tenant.RequiresRole;
 import com.anikesh.saas_backend.tenant.TenantContext;
 import com.anikesh.saas_backend.tenant.TenantScoped;
