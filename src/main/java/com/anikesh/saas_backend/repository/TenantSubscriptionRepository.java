@@ -6,4 +6,6 @@ import java.util.Optional;
 
 public interface TenantSubscriptionRepository extends JpaRepository<TenantSubscription, Long> {
      Optional<TenantSubscription> findByStripeSubscriptionId(String stripeSubscriptionId);
+
+     Optional<TenantSubscription> findFirstByTenantIdAndStatusOrderByCreatedAtDesc(Long tenantId, String status);
 }

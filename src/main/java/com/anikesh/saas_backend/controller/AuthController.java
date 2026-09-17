@@ -23,7 +23,7 @@ public class AuthController {
         String name=req.getName();
         String password=req.getPassword();
         String email=req.getEmail();
-
+        
         String token=authService.register(name,email,password);
         return ResponseEntity.ok(new AuthResponseDTO(token));
     }

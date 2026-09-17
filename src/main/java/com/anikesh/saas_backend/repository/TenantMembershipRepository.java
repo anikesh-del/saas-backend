@@ -14,4 +14,5 @@ public interface TenantMembershipRepository extends JpaRepository<TenantMembersh
             Long userId
     );
     List<TenantMembership> findAllByTenant_TenantId(Long tenantId);
+    long countByTenant_TenantId(Long tenantId);
 }

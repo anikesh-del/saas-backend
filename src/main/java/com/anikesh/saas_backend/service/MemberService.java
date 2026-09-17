@@ -4,7 +4,7 @@ import com.anikesh.saas_backend.Exception.CustomException;
 import com.anikesh.saas_backend.dto.*;
 import com.anikesh.saas_backend.entity.*;
 import com.anikesh.saas_backend.repository.*;
-
+import com.anikesh.saas_backend.security.CurrentUserProvider;
 import com.anikesh.saas_backend.tenant.RequiresRole;
 import com.anikesh.saas_backend.tenant.TenantContext;
 import com.anikesh.saas_backend.tenant.TenantScoped;
@@ -21,13 +21,17 @@ public class MemberService {
     private final TenantMembershipRepository membershipRepository;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final PlanEnforcementService planEnforcementService;
+    private final AuditService auditService;
 
     public MemberService(TenantMembershipRepository membershipRepository,
                           UserRepository userRepository,
-                          RoleRepository roleRepository) {
+                          RoleRepository roleRepository,PlanEnforcementService planEnforcementService, AuditService auditService) {
         this.membershipRepository = membershipRepository;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.planEnforcementService = planEnforcementService;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -48,12 +52,23 @@ public class MemberService {
         }
 
         Long tenantId = TenantContext.getTenantId();
+        Long currentUserId = CurrentUserProvider.getCurrentUserId();
         User user = userRepository.findById(dto.getUserId())
                 .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
 
         if (membershipRepository.findByTenant_TenantIdAndUser_UserId(tenantId, dto.getUserId()).isPresent()) {
             throw new CustomException("User is already a member of this tenant", HttpStatus.CONFLICT);
         }
+        
+        long currentMembers =
+        membershipRepository.countByTenant_TenantId(tenantId);
+
+planEnforcementService.enforceLimit(
+        tenantId,
+        "max_users",
+        currentMembers,
+        "Member"
+);
 
         Role role = roleRepository.findByName(dto.getRole())
                 .orElseThrow(() -> new CustomException("Invalid role", HttpStatus.BAD_REQUEST));
@@ -69,6 +84,16 @@ public class MemberService {
         membership.setJoinedAt(OffsetDateTime.now());
 
         membershipRepository.save(membership);
+        auditService.record(
+                tenantId,
+                "tenant_memberships",
+                user.getUserId(),
+                "INSERT",
+                currentUserId,
+                null,
+                toDto(membership)
+        );
+
         return toDto(membership);
     }
 
@@ -77,6 +102,9 @@ public class MemberService {
     @RequiresRole({"owner", "admin"})
     public void removeMember(Long userId) {
         Long tenantId = TenantContext.getTenantId();
+        Long currentUserId = CurrentUserProvider.getCurrentUserId();
+
+
         TenantMembership membership = membershipRepository.findByTenant_TenantIdAndUser_UserId(tenantId, userId)
                 .orElseThrow(() -> new CustomException("Membership not found", HttpStatus.NOT_FOUND));
 
@@ -84,7 +112,18 @@ public class MemberService {
             throw new CustomException("Cannot remove the tenant owner", HttpStatus.FORBIDDEN);
         }
 
+        MemberResponseDTO before = toDto(membership);
         membershipRepository.delete(membership);
+
+        auditService.record(
+                tenantId,
+                "tenant_memberships",
+                userId,
+                "DELETE",
+                currentUserId,
+                before,
+                null
+        );
     }
 
     @Transactional
@@ -92,6 +131,7 @@ public class MemberService {
     @RequiresRole({"owner", "admin"})
     public MemberResponseDTO changeRole(Long userId, MemberRoleChangeDTO dto) {
         Long tenantId = TenantContext.getTenantId();
+        Long currentUserId = CurrentUserProvider.getCurrentUserId();
         String callerRole = TenantContext.getRole();
 
         // only owner can change role to "owner"
@@ -101,12 +141,27 @@ public class MemberService {
 
         TenantMembership membership = membershipRepository.findByTenant_TenantIdAndUser_UserId(tenantId, userId)
                 .orElseThrow(() -> new CustomException("Membership not found", HttpStatus.NOT_FOUND));
+        
+        MemberResponseDTO before = toDto(membership);
 
         Role newRole = roleRepository.findByName(dto.getRole())
                 .orElseThrow(() -> new CustomException("Invalid role", HttpStatus.BAD_REQUEST));
 
         membership.setRole(newRole);
-        return toDto(membership);
+        MemberResponseDTO after = toDto(membership);
+
+
+        auditService.record(
+                tenantId,
+                "tenant_memberships",
+                userId,
+                "UPDATE",
+                currentUserId,
+                before,
+                after
+        );
+
+        return after;
     }
 
     private MemberResponseDTO toDto(TenantMembership m) {

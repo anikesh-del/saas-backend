@@ -16,19 +16,28 @@ import java.util.List;
 
 @Service
 public class TaskService {
-
+    private final AuditService auditService;
     private final TaskRepository taskRepository;
     private final TenantMembershipRepository membershipRepository;
-    public TaskService(TaskRepository taskRepository, TenantMembershipRepository membershipRepository) {
+    private final PlanEnforcementService planEnforcementService;
+
+    public TaskService(TaskRepository taskRepository, TenantMembershipRepository membershipRepository,
+            AuditService auditService,
+            PlanEnforcementService planEnforcementService) {
+        this.auditService = auditService;
         this.taskRepository = taskRepository;
         this.membershipRepository = membershipRepository;
+        this.planEnforcementService = planEnforcementService;
     }
 
     @Transactional
     @TenantScoped
-    @RequiresRole({"owner", "admin"})
+    @RequiresRole({ "owner", "admin" })
     public TaskResponseDTO createTask(TaskCreateDTO dto) {
         validateTenantMember(dto.getAssignedTo());
+
+        Long tenantId = TenantContext.getTenantId();
+        planEnforcementService.enforceLimit(tenantId, "max_tasks", taskRepository.count(), "Task");
 
         Task task = new Task();
         task.setTenantId(TenantContext.getTenantId());
@@ -38,7 +47,10 @@ public class TaskService {
         task.setStatus("open");
         task.setAssignedTo(dto.getAssignedTo());
         task.setDueDate(dto.getDueDate());
-        return toDto(taskRepository.save(task));
+        auditService.record(tenantId, "tasks", task.getTaskId(), "INSERT",
+                CurrentUserProvider.getCurrentUserId(), null, toDto(task));
+
+        return toDto(task);
     }
 
     @Transactional
@@ -49,10 +61,11 @@ public class TaskService {
 
     @Transactional
     @TenantScoped
-    @RequiresRole({"owner", "admin", "member"}) 
+    @RequiresRole({ "owner", "admin", "member" })
     public TaskResponseDTO updateTask(Long taskId, TaskUpdateDTO dto) {
 
         Task task = findOrThrow(taskId);
+        TaskResponseDTO before = toDto(task);
 
         Long userId = CurrentUserProvider.getCurrentUserId();
         String role = TenantContext.getRole();
@@ -69,16 +82,37 @@ public class TaskService {
         task.setDueDate(dto.getDueDate());
         if (isPrivileged) {
             validateTenantMember(dto.getAssignedTo());
-            task.setAssignedTo(dto.getAssignedTo()); 
+            task.setAssignedTo(dto.getAssignedTo());
         }
+
+        auditService.record(TenantContext.getTenantId(), "tasks", task.getTaskId(), "UPDATE",
+                userId, before, toDto(task));
+
         return toDto(task);
     }
 
     @Transactional
     @TenantScoped
-    @RequiresRole({"owner"})
+    @RequiresRole({ "owner" })
     public void deleteTask(Long taskId) {
-        taskRepository.delete(findOrThrow(taskId));
+   Task task = findOrThrow(taskId);
+
+    TaskResponseDTO before = toDto(task);
+
+    Long userId = CurrentUserProvider.getCurrentUserId();
+    Long tenantId = TenantContext.getTenantId();
+
+    taskRepository.delete(task);
+
+    auditService.record(
+            tenantId,
+            "tasks",
+            taskId,
+            "DELETE",
+            userId,
+            before,
+            null
+    );
     }
 
     private Task findOrThrow(Long taskId) {
@@ -88,20 +122,17 @@ public class TaskService {
 
     private TaskResponseDTO toDto(Task t) {
         return new TaskResponseDTO(t.getTaskId(), t.getProjectId(), t.getTenantId(), t.getTitle(),
-                t.getDescription(), t.getStatus(), t.getAssignedTo(), t.getDueDate(), t.getCreatedAt(), t.getUpdatedAt());
+                t.getDescription(), t.getStatus(), t.getAssignedTo(), t.getDueDate(), t.getCreatedAt(),
+                t.getUpdatedAt());
     }
 
     private void validateTenantMember(Long userId) {
-    membershipRepository
-            .findByTenant_TenantIdAndUser_UserId(
-                    TenantContext.getTenantId(),
-                    userId
-            )
-            .orElseThrow(() ->
-                    new CustomException(
-                            "User is not a member of this tenant",
-                            HttpStatus.BAD_REQUEST
-                    )
-            );
-}
+        membershipRepository
+                .findByTenant_TenantIdAndUser_UserId(
+                        TenantContext.getTenantId(),
+                        userId)
+                .orElseThrow(() -> new CustomException(
+                        "User is not a member of this tenant",
+                        HttpStatus.BAD_REQUEST));
+    }
 }

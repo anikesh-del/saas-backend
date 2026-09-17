@@ -16,37 +16,52 @@ import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import java.util.List;
-@Service 
-public class ProjectService {
-    
-    private final ProjectRepository projectRepository;
 
-    public ProjectService(ProjectRepository projectRepository) {
+@Service
+public class ProjectService {
+
+    private final ProjectRepository projectRepository;
+    private final PlanEnforcementService planEnforcementService;
+    private final AuditService auditService;
+
+    public ProjectService(ProjectRepository projectRepository, PlanEnforcementService planEnforcementService,
+            AuditService auditService) {
         this.projectRepository = projectRepository;
+        this.planEnforcementService = planEnforcementService;
+        this.auditService = auditService;
+
     }
-    
-    @Transactional 
-    @TenantScoped 
-    @RequiresRole({"owner","admin"})
+
+    @Transactional
+    @TenantScoped
+    @RequiresRole({ "owner", "admin" })
     public ProjectResponseDTO createProject(ProjectCreateDTO dto) {
-        
-        Project project=new Project();
+
+        Long tenantId = TenantContext.getTenantId();
+        planEnforcementService.enforceLimit(tenantId, "max_projects", projectRepository.count(), "Project");
+
+        Project project = new Project();
         project.setTenantId(TenantContext.getTenantId());
         project.setName(dto.getName());
         project.setDescription(dto.getDescription());
         project.setStatus("active");
         project.setCreatedBy(CurrentUserProvider.getCurrentUserId());
-        return toDto(projectRepository.save(project));
+        project = projectRepository.save(project);
+
+        auditService.record(tenantId, "projects", project.getProjectId(), "INSERT",
+                project.getCreatedBy(), null, toDto(project));
+
+        return toDto(project);
     }
-    
-    @Transactional 
-    @TenantScoped 
-    public List<ProjectResponseDTO> getAllProjects(){
+
+    @Transactional
+    @TenantScoped
+    public List<ProjectResponseDTO> getAllProjects() {
         return projectRepository.findAll().stream().map(this::toDto).toList();
     }
-    
+
     @Transactional
-    @TenantScoped 
+    @TenantScoped
     public ProjectResponseDTO getProject(Long projectId) {
         Project project = findOrThrow(projectId);
         return toDto(project);
@@ -54,22 +69,46 @@ public class ProjectService {
 
     @Transactional
     @TenantScoped
-    @RequiresRole({"owner", "admin"})
+    @RequiresRole({ "owner", "admin" })
     public ProjectResponseDTO updateProject(Long projectId, ProjectUpdateDTO dto) {
         Project project = findOrThrow(projectId);
-        project.setName(dto.getName());
-        project.setDescription(dto.getDescription());
-        project.setStatus(dto.getStatus());
-        return toDto(project);
+        ProjectResponseDTO before = toDto(project);
+
+    project.setName(dto.getName());
+    project.setDescription(dto.getDescription());
+    project.setStatus(dto.getStatus());
+
+    auditService.record(TenantContext.getTenantId(), "projects", project.getProjectId(), "UPDATE",
+            CurrentUserProvider.getCurrentUserId(), before, toDto(project));
+
+    return toDto(project);
     }
 
     @Transactional
     @TenantScoped
-    @RequiresRole({"owner"})
+    @RequiresRole({ "owner" })
     public void deleteProject(Long projectId) {
-        projectRepository.delete(findOrThrow(projectId));
+
+    Project project = findOrThrow(projectId);
+
+    ProjectResponseDTO before = toDto(project);
+
+    Long tenantId = TenantContext.getTenantId();
+    Long userId = CurrentUserProvider.getCurrentUserId();
+
+    projectRepository.delete(project);
+
+    auditService.record(
+            tenantId,
+            "projects",
+            projectId,
+            "DELETE",
+            userId,
+            before,
+            null
+    );
     }
-    
+
     private Project findOrThrow(Long projectId) {
         return projectRepository.findById(projectId)
                 .orElseThrow(() -> new CustomException("Project not found", HttpStatus.NOT_FOUND));
