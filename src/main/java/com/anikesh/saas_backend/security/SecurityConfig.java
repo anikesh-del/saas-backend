@@ -52,7 +52,7 @@ public DaoAuthenticationProvider authenticationProvider() {
         http
         .csrf(csrf->csrf.disable())
         .sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .authorizeHttpRequests(auth-> auth.requestMatchers("/auth/**","/webhooks/stripe").permitAll()
+        .authorizeHttpRequests(auth-> auth.requestMatchers("/api/v1/auth/**","/webhooks/stripe").permitAll()
         .anyRequest().authenticated() )
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
         .addFilterAfter(tenantContextFilter, JwtAuthenticationFilter.class);
