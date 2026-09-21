@@ -29,7 +29,7 @@ public class TenantContextFilter extends OncePerRequestFilter{
 
         String path=request.getRequestURI();
 
-        boolean isTenantScoped= !(path.startsWith("/auth") || (path.equals("/tenants") && request.getMethod().equals("POST"))|| path.equals("/webhooks/stripe"));
+        boolean isTenantScoped= !(path.startsWith("/api/v1/auth") || (path.equals("/api/v1/tenants") && request.getMethod().equals("POST"))|| path.equals("/api/v1/webhooks/stripe"));
 
     if (!isTenantScoped) {
             filterChain.doFilter(request, response);
