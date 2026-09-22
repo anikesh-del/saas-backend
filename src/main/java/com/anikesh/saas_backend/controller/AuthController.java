@@ -20,6 +20,7 @@ public class AuthController {
     public ResponseEntity<AuthResponseDTO> register(
         @Valid @RequestBody RegisterRequestDTO req
     ){
+          
         String name=req.getName();
         String password=req.getPassword();
         String email=req.getEmail();
