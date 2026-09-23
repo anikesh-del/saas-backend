@@ -11,7 +11,7 @@ import com.anikesh.saas_backend.tenant.TenantScoped;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -46,17 +46,16 @@ public class MemberService {
     @TenantScoped
     @RequiresRole({"owner", "admin"})
     public MemberResponseDTO addMember(MemberAddDTO dto) {
-        
         if ("owner".equalsIgnoreCase(dto.getRole())) {
             throw new CustomException("Cannot grant owner role through this endpoint", HttpStatus.FORBIDDEN);
         }
 
         Long tenantId = TenantContext.getTenantId();
         Long currentUserId = CurrentUserProvider.getCurrentUserId();
-        User user = userRepository.findById(dto.getUserId())
+        User user = userRepository.findByEmail(dto.getEmail())
                 .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
 
-        if (membershipRepository.findByTenant_TenantIdAndUser_UserId(tenantId, dto.getUserId()).isPresent()) {
+        if (membershipRepository.findByTenant_TenantIdAndUser_UserId(tenantId, user.getUserId()).isPresent()) {
             throw new CustomException("User is already a member of this tenant", HttpStatus.CONFLICT);
         }
         

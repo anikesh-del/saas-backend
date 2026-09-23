@@ -47,6 +47,7 @@ public class TaskService {
         task.setStatus("open");
         task.setAssignedTo(dto.getAssignedTo());
         task.setDueDate(dto.getDueDate());
+        task= taskRepository.save(task);
         auditService.record(tenantId, "tasks", task.getTaskId(), "INSERT",
                 CurrentUserProvider.getCurrentUserId(), null, toDto(task));
 

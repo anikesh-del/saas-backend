@@ -12,7 +12,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Aspect 
 @Component 
-@Order(200)
+@Order(250)
 public class TenantScopeAspect {
     private final JdbcTemplate jdbcTemplate;
 
