@@ -48,7 +48,7 @@ STRIPE_CANCEL_URL=
 
 ## API docs
 
-`http://localhost:8080/swagger-ui.html` once it's running.
+`http://localhost:8080/swagger-ui/index.html` once it's running.
 
 ## A few decisions worth explaining
 
