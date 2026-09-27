@@ -16,70 +16,72 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @Component
-public class TenantContextFilter extends OncePerRequestFilter{
-    
+public class TenantContextFilter extends OncePerRequestFilter {
+
     private final TenantMembershipRepository membershipRepository;
 
-    public TenantContextFilter(TenantMembershipRepository membershipRepository){
-        this.membershipRepository=membershipRepository;
+    public TenantContextFilter(TenantMembershipRepository membershipRepository) {
+        this.membershipRepository = membershipRepository;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain filterChain) throws ServletException, IOException{
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
 
-        String path=request.getRequestURI();
+        String path = request.getRequestURI();
 
-        boolean isTenantScoped= !(path.startsWith("/api/v1/auth") || (path.equals("/api/v1/tenants") && request.getMethod().equals("POST"))|| path.equals("/api/v1/webhooks/stripe")|| path.equals("/actuator/health"));
+        boolean isTenantScoped = !(path.startsWith("/api/v1/auth")
+                || (path.equals("/api/v1/tenants") && request.getMethod().equals("POST"))
+                || path.equals("/api/v1/webhooks/stripe") || path.equals("/actuator/health") ||
+                path.startsWith("/swagger-ui") ||
+                path.startsWith("/v3/api-docs"));
 
-    if (!isTenantScoped) {
+        if (!isTenantScoped) {
             filterChain.doFilter(request, response);
             return;
-    }
+        }
 
-     try{
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth == null || !(auth.getPrincipal() instanceof CustomUserDetails userDetails)) {
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
                 return;
             }
 
-        String tenantHeader=request.getHeader("X-Tenant-Id");
-        if(tenantHeader==null || tenantHeader.isBlank()){
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing X-Tenant-Id header");
+            String tenantHeader = request.getHeader("X-Tenant-Id");
+            if (tenantHeader == null || tenantHeader.isBlank()) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing X-Tenant-Id header");
                 return;
-        }
+            }
 
-        Long tenantId;
-        try{
-            tenantId=Long.valueOf(tenantHeader);
-        }catch(NumberFormatException e){
-               response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid X-Tenant-Id header");
+            Long tenantId;
+            try {
+                tenantId = Long.valueOf(tenantHeader);
+            } catch (NumberFormatException e) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid X-Tenant-Id header");
                 return;
-        }
+            }
 
-        TenantMembership membership =
-        membershipRepository
-            .findByTenant_TenantIdAndUser_UserId(
-                tenantId,
-                userDetails.getUserId()
-            )
-            .orElse(null);
+            TenantMembership membership = membershipRepository
+                    .findByTenant_TenantIdAndUser_UserId(
+                            tenantId,
+                            userDetails.getUserId())
+                    .orElse(null);
 
-if (membership == null) {
-    response.sendError(
-        HttpServletResponse.SC_FORBIDDEN,
-        "Not a member of this tenant"
-    );
-    return;
-}
-        
+            if (membership == null) {
+                response.sendError(
+                        HttpServletResponse.SC_FORBIDDEN,
+                        "Not a member of this tenant");
+                return;
+            }
+
             TenantContext.setTenantId(tenantId);
             TenantContext.setRole(membership.getRole().getName());
-            
-            filterChain.doFilter(request,response);
 
-     }finally{
-             TenantContext.clear();
-     }
-}
+            filterChain.doFilter(request, response);
+
+        } finally {
+            TenantContext.clear();
+        }
+    }
 }

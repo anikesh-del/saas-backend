@@ -8,6 +8,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 
 @RestController
 @RequestMapping("/api/v1/webhooks")
@@ -17,11 +20,12 @@ public class StripeWebhookController {
     private final StripeWebhookService webhookService;
 
     public StripeWebhookController(@Value("${stripe.webhook-secret}") String webhookSecret,
-                                    StripeWebhookService webhookService) {
+            StripeWebhookService webhookService) {
         this.webhookSecret = webhookSecret;
         this.webhookService = webhookService;
     }
 
+    @Operation(summary = "Stripe webhook receiver", description = "Public endpoint. Authenticated via Stripe-Signature header verification, not JWT. Not for manual/interactive use.")
     @PostMapping("/stripe")
     public ResponseEntity<Void> handleStripeWebhook(
             @RequestBody String payload,
@@ -34,11 +38,10 @@ public class StripeWebhookController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
 
-
         try {
             webhookService.process(event);
         } catch (Exception e) {
-            
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
 

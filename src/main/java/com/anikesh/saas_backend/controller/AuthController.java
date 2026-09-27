@@ -5,6 +5,9 @@ import com.anikesh.saas_backend.dto.*;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -16,7 +19,8 @@ public class AuthController {
         this.authService=authService;
     }
     
-    @PostMapping("/register")
+   @Operation(summary = "Register a new user", description = "Returns a JWT access token. No tenant context required.")
+@PostMapping("/register")
     public ResponseEntity<AuthResponseDTO> register(
         @Valid @RequestBody RegisterRequestDTO req
     ){
@@ -29,7 +33,8 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponseDTO(token));
     }
 
-    @PostMapping("/login")
+    @Operation(summary = "Log in", description = "Returns a JWT access token. No tenant context required.")
+@PostMapping("/login")
     public ResponseEntity<AuthResponseDTO> login(
         @Valid @RequestBody LoginRequestDTO req
     ){
