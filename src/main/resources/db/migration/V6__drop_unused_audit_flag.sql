@@ -1,0 +1,1 @@
+DELETE FROM plan_features WHERE feature_key = 'audit_log_access';
