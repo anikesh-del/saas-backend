@@ -27,18 +27,30 @@ public class StripeWebhookService {
     private final SystemUserService systemUserService;
     private final ObjectMapper objectMapper;
 
+    private final WebhookIdempotencyservice webhookIdempotencyService;
+
     public StripeWebhookService(TenantSubscriptionRepository subscriptionRepository,
             WebhookEventRepository webhookEventRepository, AuditLogRepository auditLogRepository,
-            SystemUserService systemUserService, ObjectMapper objectMapper) {
+            SystemUserService systemUserService, ObjectMapper objectMapper,
+            WebhookIdempotencyservice webhookIdempotencyService) {
         this.subscriptionRepository = subscriptionRepository;
         this.webhookEventRepository = webhookEventRepository;
         this.auditLogRepository = auditLogRepository;
         this.systemUserService = systemUserService;
         this.objectMapper = objectMapper;
+        this.webhookIdempotencyService = webhookIdempotencyService;
     }
 
     @Transactional
     public void process(Event event) {
+        boolean isNew = webhookIdempotencyService.recordIfNew(
+                event.getId(),
+                event.getType());
+
+        if (!isNew) {
+            return;
+        }
+
         switch (event.getType()) {
             case "checkout.session.completed" -> handleCheckoutCompleted(event);
             case "customer.subscription.updated" -> handleSubscriptionUpdated(event);

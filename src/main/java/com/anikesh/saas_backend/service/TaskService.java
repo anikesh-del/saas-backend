@@ -20,14 +20,16 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final TenantMembershipRepository membershipRepository;
     private final PlanEnforcementService planEnforcementService;
+    private final ProjectRepository projectRepository;
 
     public TaskService(TaskRepository taskRepository, TenantMembershipRepository membershipRepository,
             AuditService auditService,
-            PlanEnforcementService planEnforcementService) {
+            PlanEnforcementService planEnforcementService, ProjectRepository projectRepository) {
         this.auditService = auditService;
         this.taskRepository = taskRepository;
         this.membershipRepository = membershipRepository;
         this.planEnforcementService = planEnforcementService;
+        this.projectRepository = projectRepository;
     }
 
     @Transactional
@@ -35,6 +37,7 @@ public class TaskService {
     @RequiresRole({ "owner", "admin" })
     public TaskResponseDTO createTask(TaskCreateDTO dto) {
         validateTenantMember(dto.getAssignedTo());
+        validateProjectInTenant(dto.getProjectId());
 
         Long tenantId = TenantContext.getTenantId();
         planEnforcementService.enforceLimit(tenantId, "max_tasks", taskRepository.count(), "Task");
@@ -47,7 +50,7 @@ public class TaskService {
         task.setStatus("open");
         task.setAssignedTo(dto.getAssignedTo());
         task.setDueDate(dto.getDueDate());
-        task= taskRepository.save(task);
+        task = taskRepository.save(task);
         auditService.record(tenantId, "tasks", task.getTaskId(), "INSERT",
                 CurrentUserProvider.getCurrentUserId(), null, toDto(task));
 
@@ -96,24 +99,23 @@ public class TaskService {
     @TenantScoped
     @RequiresRole({ "owner" })
     public void deleteTask(Long taskId) {
-   Task task = findOrThrow(taskId);
+        Task task = findOrThrow(taskId);
 
-    TaskResponseDTO before = toDto(task);
+        TaskResponseDTO before = toDto(task);
 
-    Long userId = CurrentUserProvider.getCurrentUserId();
-    Long tenantId = TenantContext.getTenantId();
+        Long userId = CurrentUserProvider.getCurrentUserId();
+        Long tenantId = TenantContext.getTenantId();
 
-    taskRepository.delete(task);
+        taskRepository.delete(task);
 
-    auditService.record(
-            tenantId,
-            "tasks",
-            taskId,
-            "DELETE",
-            userId,
-            before,
-            null
-    );
+        auditService.record(
+                tenantId,
+                "tasks",
+                taskId,
+                "DELETE",
+                userId,
+                before,
+                null);
     }
 
     private Task findOrThrow(Long taskId) {
@@ -128,6 +130,10 @@ public class TaskService {
     }
 
     private void validateTenantMember(Long userId) {
+        if (userId == null) {
+            return;
+        }
+
         membershipRepository
                 .findByTenant_TenantIdAndUser_UserId(
                         TenantContext.getTenantId(),
@@ -135,5 +141,10 @@ public class TaskService {
                 .orElseThrow(() -> new CustomException(
                         "User is not a member of this tenant",
                         HttpStatus.BAD_REQUEST));
+    }
+
+    private void validateProjectInTenant(Long projectId) {
+        projectRepository.findById(projectId)
+                .orElseThrow(() -> new CustomException("Project not found", HttpStatus.NOT_FOUND));
     }
 }
